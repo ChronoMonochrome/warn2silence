@@ -80,14 +80,17 @@ def main(log_file):
 			rfile = os.path.realpath(file).replace(this_path, "").replace(TOP, "")
 
 			in_file = "{top}{file}".format(top = TOP, file = rfile)
+			if not os.path.exists(in_file):
+				continue
+
 			out_file = "{tmp_dir}{file}".format(tmp_dir = TMP_DIR, file = rfile)
 			out_dir = os.path.dirname(out_file)
 
 			if not os.path.exists(out_dir):
 				os.makedirs(out_dir)
 
-			with open(out_file, "w") as outf:
-				with open(in_file, "r") as inf:
+			with open(in_file, "r") as inf:
+				with open(out_file, "w") as outf:
 					buf_errs = []
 					for err in errors_dict[file]:
 						buf_errs.append(warn2silence(err))
