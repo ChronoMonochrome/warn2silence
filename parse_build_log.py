@@ -31,8 +31,6 @@ def parse(log):
 					tmp_res[file].append(error)
 				else:
 					continue
-
-				#yield file, error
 	return tmp_res
 
 def warn2silence(warn):
@@ -40,14 +38,6 @@ def warn2silence(warn):
 
 
 def main():
-	#parse("/media/system2/root/AOSP10/error.log")
-	#for file, error in parse(sys.argv[1]):
-	#	#print(file, error)
-	#	fname = os.path.basename(file)
-	#	#with open("{tmp_dir}/{file}".format(tmp_dir = TMP_DIR, file = fname), "w") as out:
-	#	#	with open("{top}/{file}".format(top = TOP, file = file), "r") as in:
-	#	#
-	#print(parse(sys.argv[1]))
 	this_path = _module_path()
 	errors_dict = parse(sys.argv[1])
 
@@ -64,16 +54,15 @@ def main():
 
 	with open(top_diff, "a+") as out_diff:
 		for file in errors_dict.keys():
-			#print(os.path.realpath(file), this_path)
 			rfile = os.path.realpath(file).replace(this_path, "")
 
 			in_file = "{top}{file}".format(top = TOP, file = rfile)
-			#print(in_file, TOP, in_file.replace(TOP + "/", ""))
 			out_file = "{tmp_dir}{file}".format(tmp_dir = TMP_DIR, file = rfile)
 			out_dir = os.path.dirname(out_file)
+
 			if not os.path.exists(out_dir):
 				os.makedirs(out_dir)
-			#print(in_file, out_file)
+
 			with open(out_file, "w") as outf:
 				with open(in_file, "r") as inf:
 					buf_errs = []
@@ -97,7 +86,6 @@ def main():
 				p = subprocess.Popen(diff_cmd + [in_file, out_file], stdout = tmp_diff)
 				p.communicate()
 				p.wait()
-				#time.sleep(0.6)
 				tmp_diff.seek(0)
 				out_diff.writelines(tmp_diff.readlines())
 
