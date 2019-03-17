@@ -7,14 +7,26 @@ import time
 
 import subprocess
 
+TOP = None
 TMP_DIR = "/tmp/parse_build_log"
-TOP = "/media/system2/root/AOSP10"
+PATCH_CMD = "patch -p{X} -i err.diff"
+PNUM = "X"
 
 def _module_path():
 	if "__file__" in globals():
 		return os.path.dirname(os.path.realpath(__file__))
 
 	return ""
+
+def setup_env():
+	global TOP, PNUM, PATCH_CMD
+	if not "ANDROID_BUILD_TOP" in os.environ:
+		usage("please run \"source build/envsetup.sh\" at the top of the Android source tree.")
+
+	TOP = os.environ["ANDROID_BUILD_TOP"]
+	PNUM = TOP.count("/") + 1
+	PATCH_CMD = PATCH_CMD.format(X = PNUM)
+
 
 def parse(log):
 	tmp_res = dict()
@@ -37,9 +49,20 @@ def warn2silence(warn):
 	return "#pragma clang diagnostic ignored \"{warn}\"\n".format(warn = warn)
 
 
-def main():
+def usage(error = ""):
+	global TOP, PNUM, PATCH_CMD
+
+	print("usage: source build/envsetup.sh\n"
+		  "	   python warn2silence.py build_log.txt\n" +
+		  "	   {patch_cmd}\n".format(patch_cmd = PATCH_CMD) +
+		  "{err}".format(err = ("\nerror: " + error) if error else ""))
+
+	sys.exit()
+
+def main(log_file):
+	global TOP, PNUM, PATCH_CMD
 	this_path = _module_path()
-	errors_dict = parse(sys.argv[1])
+	errors_dict = parse(log_file)
 
 	top_diff = "{top}/err.diff".format(top = TOP)
 	diff_cmd = ["git", "diff", "--no-index"]
@@ -54,7 +77,7 @@ def main():
 
 	with open(top_diff, "a+") as out_diff:
 		for file in errors_dict.keys():
-			rfile = os.path.realpath(file).replace(this_path, "")
+			rfile = os.path.realpath(file).replace(this_path, "").replace(TOP, "")
 
 			in_file = "{top}{file}".format(top = TOP, file = rfile)
 			out_file = "{tmp_dir}{file}".format(tmp_dir = TMP_DIR, file = rfile)
@@ -89,5 +112,14 @@ def main():
 				tmp_diff.seek(0)
 				out_diff.writelines(tmp_diff.readlines())
 
+	pnum = (TOP.count("/") + 1) if TOP else "X"
+	print("Ready! Now just run\n"
+	      "       {patch_cmd}".format(patch_cmd = PATCH_CMD))
+
+
 if __name__ == "__main__":
-	main()
+	setup_env()
+	if (len(sys.argv) < 2):
+		usage("no input file specified")
+
+	main(sys.argv[1])
