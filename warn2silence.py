@@ -26,6 +26,11 @@ TMP_DIR = "/tmp/parse_build_log"
 PATCH_CMD = "patch -p{X} -i err.diff"
 PNUM = "X"
 
+"""class Error:
+	def __init__(self, err_type, is_clang_error):
+		self.err_type = err_type
+		self.is_clang_error = is_clang_error"""
+
 def _module_path():
 	if "__file__" in globals():
 		return os.path.dirname(os.path.realpath(__file__))
@@ -43,24 +48,41 @@ def setup_env():
 
 
 def parse(log):
-	tmp_res = dict()
+	res = dict()
+	err_msg_dict = dict()
 	with open(log, "r") as f:
+		is_gcc_err = False
+		is_clang_err = False
 		for line in f:
-			if "[-Werror," in line and ":" in line:
-				file = line.split(":")[0]
+			colon = (":" in line)
+			closing_bracket = ("]" in line)
+			common_err_ptr = colon and closing_bracket
+			is_gcc_err = common_err_ptr and ("[-Werror=" in line)
+			is_clang_err = common_err_ptr and ("[-Werror," in line)
+			if is_clang_err:
 				error = line.split("[")[-1].split(",")[-1].split("]")[0]
+			elif is_gcc_err:
+				error = "-W{}".format(line.split("[")[-1].split("=")[-1].split("]")[0])
+			else:
+				continue
 
-				if not file in tmp_res:
-					tmp_res[file] = []
+			if is_gcc_err or is_clang_err:
+				file = line.split(":")[0]
+				if not file in res:
+					res[file] = []
 
-				if not error in tmp_res[file]:
-					tmp_res[file].append(error)
+				error = [error, is_clang_err]
+
+				if not error in res[file]:
+					res[file].append(error)
 				else:
 					continue
-	return tmp_res
+	return res
 
-def warn2silence(warn):
-	return "#pragma clang diagnostic ignored \"{warn}\"\n".format(warn = warn)
+def warn2silence(err_type, is_clang_error):
+	compiler = "clang" if is_clang_error else "GCC"
+	return "#pragma {compiler} diagnostic ignored \"{warn}\"\n"\
+		.format(compiler = compiler, warn = err_type)
 
 
 def usage(error = ""):
@@ -107,7 +129,7 @@ def main(log_file):
 				with open(out_file, "w") as outf:
 					buf_errs = []
 					for err in errors_dict[file]:
-						buf_errs.append(warn2silence(err))
+						buf_errs.append(warn2silence(*err))
 					outf.writelines(buf_errs)
 					outf.writelines(inf.readlines())
 
